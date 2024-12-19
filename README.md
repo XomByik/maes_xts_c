@@ -1,4 +1,4 @@
-# AES-XTS Šifrovanie a Dešifrovanie Súborov pomocou knižnice micro-AES
+# AES-XTS šifrovanie a dešifrovanie súborov pomocou knižnice micro-AES
 
 ## Obsah
 1. [Základný prehľad](#základný-prehľad)
