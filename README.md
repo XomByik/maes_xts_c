@@ -194,8 +194,8 @@ static void process_sector(uint8_t* buffer, size_t size, uint64_t sector_number,
   - initial_tweak: počiatočná bloková úprava
   - encrypt: režim operácie (1=šifrovanie, 0=dešifrovanie)
 - **Proces**:
-  1. Výpočet tweaku pre daný sektor
-  2. XTS šifrovanie/dešifrovanie s vypočítaným tweakom
+  1. Výpočet blokovej úpravy pre daný sektor
+  2. XTS šifrovanie/dešifrovanie s vypočítanou blokovou úpravou
   3. Zápis šifrovaných/dešifrovaných dát do buffra
 
 #### 5. calculate_sector_tweak
@@ -206,11 +206,11 @@ static void calculate_sector_tweak(const unsigned char *initial_tweak, uint64_t 
 - **Parametre**: 
   - initial_tweak: počiatočná bloková úprava (16 bajtov)
   - sector_number: číslo sektora
-  - output_tweak: výstupný buffer pre tweak (16 bajtov)
+  - output_tweak: výstupný buffer pre vypočítanú blokovú úpravu (16 bajtov)
 - **Proces**:
-  1. Skopírovanie počiatočného tweaku
-  2. XOR počiatočnej blokovej úpravy s logickým číslom sektora po 64-bitových častiach
-  3. Zachovanie 128-bitovej hodnoty tweaku
+  1. Skopírovanie počiatočnej blokovej úpravy
+  2. XOR počiatočnej blokovej úpravy s logickým číslom sektora (po dvoch 64-bitových častiach)
+  3. Zachovanie 128-bitovej hodnoty blokovej úpravy
 #### 6. generate_secure_random
 ```c
 static void generate_secure_random(uint8_t* buffer, size_t length)
@@ -235,7 +235,7 @@ fc_status_t fc_encrypt_file_with_password(const char* input_path, const char* ou
   - password: heslo od užívateľa
   **Proces**:
   1. Validácia vstupných parametrov
-  2. Generovanie soli a tweaku
+  2. Vygenerovanie náhodnej soli a počiatočnej blokovej úpravy
   3. Derivácia kľúča z hesla
   4. Vytvorenie a zápis hlavičky
   5. Šifrovanie dát po sektoroch
@@ -282,14 +282,13 @@ static void handle_crypto_error(fc_status_t status)
 ### Bezpečnostné vlastnosti
 
 #### 1. Ochrana proti útokom
-- Rýchlosť a bezpečnosť vďaka BLAKE3
+- Rýchlosť a bezpečnosť vďaka hashovacej funkcii BLAKE3
 - Unikátna soľ pre každý súbor
-- Ochrana proti útokom na tweak hodnoty
+- Unikátna počiatočná bloková úprava pre každý súbor
 
 #### 2. Kryptografická bezpečnosť
-- 256-bitová bezpečnostná úroveň
+- 256-bitová ekvivalentná výpočtová bezpečnosť proti útoku hrubou silou
 - Bezpečné mazanie citlivých údajov z pamäte
-- Overenie integrity dát
 
 #### 3. Odporúčania pre heslá
 - Minimálna dĺžka: 8 znakov
