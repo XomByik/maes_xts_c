@@ -36,7 +36,7 @@ Tento program slúži na bezpečné šifrovanie a dešifrovanie súborov pomocou
    - Moderná hashovacia funkcia
    - Rýchla aj na menej výkonných zariadeniach
    - Generuje 512-bitový kľúč z hesla
-   - Používa soľ pre jedinečnosť
+   - Využívame náhodnú soľ pre jedinečnosť každého hesla
 
 ### Proces šifrovania
 1. Zadanie vstupných parametrov:
