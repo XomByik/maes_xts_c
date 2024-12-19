@@ -210,7 +210,6 @@ static void calculate_sector_tweak(const unsigned char *initial_tweak, uint64_t 
 - **Proces**:
   1. Skopírovanie počiatočnej blokovej úpravy
   2. XOR počiatočnej blokovej úpravy s logickým číslom sektora (po dvoch 64-bitových častiach)
-  3. Zachovanie 128-bitovej hodnoty blokovej úpravy
 #### 6. generate_secure_random
 ```c
 static void generate_secure_random(uint8_t* buffer, size_t length)
