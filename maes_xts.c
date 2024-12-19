@@ -15,10 +15,7 @@
  * 
  * Popis:
  * Program implementuje sifrovanie a desifrovanie suborov pomocou AES-256-XTS.
- * Vyuziva microAES kniznicu pre kryptograficke operacie a BLAKE3 hashovaciu funkciu na odvodenie klucov z hesla.
- * Bezpecne odvodenie kluca z hesla. Podporuje spracovanie viacerych suborov
- * naraz a testovanie pomocou standardnych IEEE testovacich vektorov.
- * 
+ * Vyuziva microAES kniznicu pre kryptograficke operacie a hashovaciu funkciu BLAKE3 na odvodenie klucov z hesla.
  * 
  * Pre viac info pozri README.md
  ****************************************************************************/
@@ -43,13 +40,12 @@
  * - Zabranuje odstraneniu "zbytocnych" zapisov do pamate
  * - Garantuje ze kazdy zapis sa skutocne vykona
  * 
- *t Assembler bariera:
+ * Assembler bariera:
  * - Zakazuje presun instrukcii cez barieru pri optimalizacii
- * - "memory" clobber indikuje ze pamat mohla byt zmenena
  * - Zabranuje kompileru predpokladat stav pamate
  * 
  * Parametre:
- * @param ptr - Pointer na pamatovy bloka na vymazanie
+ * @param ptr - Pointer na pamatovy blok na vymazanie
  * @param size - Velkost pamatoveho bloku v bajtoch
  * 
  * Pouzitie:
@@ -65,7 +61,6 @@ static void secure_clear(void* ptr, size_t size) {
     // Assembler bariera pre zabezpecenie vykonania zapisov
     asm volatile("" : : "r"(ptr) : "memory");
 }
-
 /**
  * Vytvorenie sifrovacieho kluca z hesla a soli
  * 
@@ -74,7 +69,7 @@ static void secure_clear(void* ptr, size_t size) {
  * Kombinuje heslo a sol pre zvysenie odolnosti voci slovnikovym utokom.
  * 
  * Proces spracovania:
- * 1. Validacia vstupnych parametrov
+ * 1. Overenie vstupnych parametrov
  * 2. Inicializacia BLAKE3 hashovacej funkcie
  * 3. Pridanie hesla a soli do hashu
  * 4. Generovanie 512-bitoveho kluca
@@ -89,16 +84,14 @@ static fc_status_t hash_password(const char* password, const uint8_t* salt, uint
     if (!password || !salt || !key) {
         return FC_ERROR_INVALID_INPUT;
     }
-
+    
     blake3_hasher hasher;
-
     // Inicializacia hashovacej funkcie BLAKE3
     blake3_hasher_init(&hasher);
     blake3_hasher_update(&hasher, (const uint8_t*)password, strlen(password));
     blake3_hasher_update(&hasher, salt, SALT_SIZE);
     // Generovanie 64-bajtoveho kluca priamo
     blake3_hasher_finalize(&hasher, key, 64);
-
     // Bezpecne vymazanie citlivych dat z pamate
     secure_clear(&hasher, sizeof(hasher));
 
@@ -181,7 +174,6 @@ static void read_password(char* password, size_t max_len) {
  * - Unikatny tweak pre kazdy sektor
  * - Podpora neuplnych blokov pomocou ciphertext stealing
  * - In-place sifrovanie pre minimalizaciu kopirovanych dat
- * - Automaticka detekcia velkosti sektora
  * 
  * Parametre:
  * @param ptx - Pointer na vstupne data (plaintext)
@@ -256,13 +248,12 @@ static void calculate_sector_tweak(const unsigned char *initial_tweak,
  * 
  * Proces spracovania:
  * 1. Detekcia operacneho systemu
- * 2. Pouzitie systemu-specifickeho generatora
+ * 2. Pouzitie generatora pre dany OS
  * 3. Kontrola uspesnosti generovania
  * 
  * Bezpecnostne opatrenia:
- * - Pouzitie kryptograficky bezpecneho generatora OS
+ * - Pouzitie kryptograficky bezpecneho generatora OS s dostatocnou nahodnostou
  * - Kontrola navratovych hodnot
- * - Overenie dostatku entropie
  * 
  * Parametre:
  * @param buffer - Vystupny buffer pre nahodne data
@@ -318,16 +309,16 @@ static fc_status_t generate_secure_random(uint8_t* buffer, size_t length) {
  * Vytvara zasifrovany subor s hlavickou obsahujucou metadata.
  * 
  * Proces spracovania:
- * 1. Validacia vstupnych parametrov
+ * 1. Overenie vstupnych parametrov
  * 2. Otvorenie vstupneho/vystupneho suboru
  * 3. Generovanie soli a tweaku
- * 4. Derivacia klucov z hesla
+ * 4. Odvodenie klucov z hesla
  * 5. Vytvorenie a zapis hlavicky
  * 6. Sifrovanie dat po sektoroch
- * 7. Cleanup a zatvorenie suborov
+ * 7. Vycistenie/uvolnenie pamate a zatvorenie suborov
  * 
  * Bezpecnostne opatrenia:
- * - Validacia vstupov
+ * - Overenie vstupov
  * - Bezpecne generovanie soli
  * - Bezpecne mazanie klucov
  * - Spracovanie chyb
@@ -350,12 +341,10 @@ fc_status_t fc_encrypt_file_with_password(const char* input_path,
     struct file_header header;
     uint8_t key[64];  // Jeden 64-bajtovy kluc namiesto dvoch 32-bajtovych
     uint64_t sector_number = 0;
-
     // Kontrola platnosti vstupnych parametrov
     if (!input_path || !output_path || !password) {
         return FC_ERROR_INVALID_INPUT;
     }
-
     // Otvorenie suborov
     fin = fopen(input_path, "rb");
     if (!fin) return FC_ERROR_FILE_OPEN;
@@ -365,32 +354,27 @@ fc_status_t fc_encrypt_file_with_password(const char* input_path,
         fclose(fin);
         return FC_ERROR_FILE_OPEN;
     }
-
     // Alokacia buffra pre citanie/zapis dat
     buffer = (uint8_t*)malloc(BUFFER_SIZE);
     if (!buffer) {
         status = FC_ERROR_MEMORY;
         goto cleanup;
     }
-
     // Generovanie soli
     status = generate_secure_random(header.salt, SALT_SIZE);
     if (status != FC_SUCCESS) {
         goto cleanup;
-    }
-    
+    } 
     // Odvodenie kluca z hesla
     status = hash_password(password, header.salt, key);
     if (status != FC_SUCCESS) {
         goto cleanup;
     }
-
     // Generovanie pociatocneho tweaku
     status = generate_secure_random((uint8_t*)&header.initial_tweak, TWEAK_LENGTH);
     if (status != FC_SUCCESS) {
         goto cleanup;
     }
-
     // Zapis hlavicky
     fwrite(&header, sizeof(header), 1, fout);
 
@@ -433,12 +417,12 @@ cleanup:
  * Proces spracovania:
  * 1. Otvorenie suborov
  * 2. Nacitanie a spracovanie hlavicky
- * 3. Derivacia klucov z hesla a soli
+ * 3. Odvodenie klucov z hesla a soli
  * 4. Desifrovanie dat po sektoroch
- * 5. Cleanup a zatvorenie suborov
+ * 5. Vycistenie/uvolnenie pamate a zatvorenie suborov
  * 
  * Bezpecnostne opatrenia:
- * - Validacia hlavicky
+ * - Overenie hlavicky
  * - Kontrola velkosti suboru
  * - Bezpecne mazanie klucov
  * - Spracovanie chyb
@@ -471,27 +455,23 @@ fc_status_t fc_decrypt_file_with_password(const char* input_path,
         fclose(fin);
         return FC_ERROR_INVALID_INPUT;  
     }
-
-    // Derivacia kluca z hesla a soli
+    // Odvodenie kluca z hesla a soli
     status = hash_password(password, header.salt, key);
     if (status != FC_SUCCESS) {
         goto cleanup;
     }
-
     // Otvorenie vystupneho suboru
     fout = fopen(output_path, "wb");
     if (!fout) {
         fclose(fin);
         return FC_ERROR_FILE_OPEN;
     }
-
     // Alokacia buffra pre citanie/zapis dat
     buffer = (uint8_t*)malloc(BUFFER_SIZE);
     if (!buffer) {
         status = FC_ERROR_MEMORY;
         goto cleanup;
     }
-
     // Desifrovanie suboru po sektoroch az do konca
     while (1) {
         size_t bytes_read = fread(buffer, 1, SECTOR_SIZE, fin);
@@ -528,15 +508,13 @@ static fc_status_t create_decrypted_path(const char* input_path, char* output_pa
     size_t len = strlen(input_path);
     const char* enc_suffix = ".enc";
     const char* dec_prefix = "dec_";
-
     // Kontrola, ci ma subor priponu .enc
     if (len < strlen(enc_suffix) || strcmp(input_path + len - strlen(enc_suffix), enc_suffix) != 0) {
         return FC_ERROR_INVALID_EXTENSION;
     }
-
     // Odstranime .enc a pridame dec_ na zaciatok
     snprintf(output_path, max_len, "%s%.*s", dec_prefix, (int)(len - strlen(enc_suffix)), input_path);
-    
+ 
     return FC_SUCCESS;
 }
 
@@ -571,7 +549,6 @@ static void handle_crypto_error(fc_status_t status) {
             fprintf(stderr, "Chyba: Neznama chyba (status: %d)\n", status);
     }
 }
-
 // Funkcia na spracovanie sifrovania
 static fc_status_t handle_encryption(const char* input_path, const char* password) {
     char output_path[PATH_MAX];
@@ -580,7 +557,6 @@ static fc_status_t handle_encryption(const char* input_path, const char* passwor
     printf("Sifrovanie suboru '%s' do '%s'...\n", input_path, output_path);
     return fc_encrypt_file_with_password(input_path, output_path, password);
 }
-
 // Funkcia na spracovanie desifrovania
 static fc_status_t handle_decryption(const char* input_path, const char* password) {
     char output_path[PATH_MAX];
@@ -607,11 +583,9 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Chyba: Vstupny subor '%s' neexistuje\n", argv[2]);
         return FC_ERROR_FILE_NOT_FOUND;
     }
-
     // Bezpecne nacitanie hesla od uzivatela
     char password[MAX_PASSWORD_LENGTH];
     read_password(password, MAX_PASSWORD_LENGTH);
-
     // Spracovanie podla zvolenej operacie
     fc_status_t status;
     char output_path[PATH_MAX];
@@ -628,10 +602,8 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Neplatna volba. Pouzite -e pre sifrovanie alebo -d pre desifrovanie\n");
         return 1;
     }
-
     // Spracovanie a zobrazenie vysledku operacie
     handle_crypto_error(status);
-
     // Bezpecne vymazanie hesla z pamate
     secure_clear(password, sizeof(password));
     return status;
