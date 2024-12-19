@@ -307,5 +307,3 @@ static void handle_crypto_error(fc_status_t status)
 ### Použité knižnice
 - [micro-AES](https://github.com/polfosol/micro-AES)
 - [BLAKE3](https://github.com/BLAKE3-team/BLAKE3)
-- [monocypher](https://github.com/LoupVaillant/Monocypher)
-
