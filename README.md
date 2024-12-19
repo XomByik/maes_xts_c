@@ -1,4 +1,4 @@
-# micro-AES XTS Šifrovanie a Dešifrovanie Súborov
+# AES-XTS Šifrovanie a Dešifrovanie Súborov pomocou micro-AES
 
 ## Obsah
 1. [Základný prehľad](#základný-prehľad)
