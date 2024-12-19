@@ -253,7 +253,7 @@ fc_status_t fc_decrypt_file_with_password(const char* input_path, const char* ou
   2. Derivácia kľúča z hesla a načítanej soli
   3. Dešifrovanie dát po sektoroch
   4. Kontrola integrity dát
-  5. Cleanup zdrojov
+  5. Uvoľnenie/vyčistenie zdrojov
 
 #### 9. Pomocné funkcie pre prácu so súbormi
 ```c
@@ -276,7 +276,7 @@ static void handle_crypto_error(fc_status_t status)
 - **Proces**:
   1. Analýza chybového kódu
   2. Výpis zodpovedajúcej chybovej správy
-  3. Cleanup zdrojov
+  3. Uvoľnenie/vyčistenie zdrojov
 
 ### Bezpečnostné vlastnosti
 
