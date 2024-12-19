@@ -280,7 +280,6 @@ static void handle_crypto_error(fc_status_t status)
 ### Bezpečnostné vlastnosti
 
 #### 1. Ochrana proti útokom
-- Rýchlosť a bezpečnosť vďaka hashovacej funkcii BLAKE3
 - Unikátna soľ pre každý súbor
 - Unikátna počiatočná bloková úprava pre každý súbor
 
