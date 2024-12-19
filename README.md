@@ -53,8 +53,8 @@ Tento program slúži na bezpečné šifrovanie a dešifrovanie súborov pomocou
    - Prvý kľúč pre šifrovanie dát
    - Druhý kľúč pre blokové úpravy
 
-4. Spracovanie súboru po sektoroch:
-   - Veľkosť sektora: 512 bajtov
+4. Spracovanie súboru po logických sektoroch:
+   - Veľkosť sektora: 512 bajtov (typická veľkosť jedného sektoru vo väčšine operačných systémov)
    - Pre každý sektor sa vypočíta bloková úprava z jeho pozície
    - Šifrovanie dát v sektore pomocou AES-XTS
 
