@@ -34,7 +34,7 @@ Tento program slúži na bezpečné šifrovanie a dešifrovanie súborov pomocou
 
 2. **BLAKE3**
    - Moderná hashovacia funkcia
-   - Rýchla a bezpečná
+   - Rýchla aj na menej výkonných zariadeniach
    - Generuje 512-bitový kľúč z hesla
    - Používa soľ pre jedinečnosť
 
