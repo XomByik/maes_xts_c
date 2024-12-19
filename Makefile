@@ -23,6 +23,15 @@ SUPPRESSED := -Wno-unused-parameter -Wno-unused-variable -Wno-format
 # SIMD flagy pre BLAKE3
 BLAKE3_DEFS := -DBLAKE3_NO_AVX512 -DBLAKE3_NO_AVX2 -DBLAKE3_NO_SSE41 -DBLAKE3_NO_SSE2
 
+# Add Windows-specific flags if on Windows
+ifeq ($(DETECTED_OS),Windows)
+    CFLAGS += -D_WIN32 -D_CRT_SECURE_NO_WARNINGS
+    # Add these new flags to fix MinGW issues
+    CFLAGS += -DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0601
+    # Add Windows BCrypt library
+    LDFLAGS += -lbcrypt
+endif
+
 # Priecinok pre objektove subory
 OBJDIR := .build
 
@@ -39,7 +48,7 @@ LIBOBJS := $(LIBSRCS:%.c=$(OBJDIR)$(SEP)%.o)
 
 # Hlavny ciel
 $(TARGET): $(OBJDIR) $(OBJS) $(LIBOBJS)
-	$(CC) -o $@ $(OBJS) $(LIBOBJS) $(CFLAGS) $(SUPPRESSED)
+	$(CC) -o $@ $(OBJS) $(LIBOBJS) $(CFLAGS) $(SUPPRESSED) $(LDFLAGS)
 
 # Vytvorenie priecinkov pre objektove subory
 $(OBJDIR):
