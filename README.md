@@ -269,11 +269,11 @@ static void create_decrypted_path(char *output, const char *input)
 ```c
 static void handle_crypto_error(fc_status_t status)
 ```
-- **Účel**: Jednotné spracovanie chýb
+- **Účel**: Spracovanie chýb
 - **Parametre**:
   - status: kód chyby
 - **Proces**:
-  1. Analýza chybového kódu
+  1. Určenie chyby podľa kódu
   2. Výpis zodpovedajúcej chybovej správy
   3. Uvoľnenie/vyčistenie zdrojov
 
