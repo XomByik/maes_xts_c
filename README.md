@@ -239,7 +239,7 @@ fc_status_t fc_encrypt_file_with_password(const char* input_path, const char* ou
   3. Derivácia kľúča z hesla
   4. Vytvorenie a zápis hlavičky
   5. Šifrovanie dát po sektoroch
-  6. Cleanup zdrojov
+  6. Uvoľnenie/vyčistenie zdrojov
 #### 8. fc_decrypt_file_with_password
 ```c
 fc_status_t fc_decrypt_file_with_password(const char* input_path, const char* output_path, const char* password)
