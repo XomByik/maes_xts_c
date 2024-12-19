@@ -29,7 +29,7 @@ Tento program slúži na bezpečné šifrovanie a dešifrovanie súborov pomocou
 1. **micro-AES XTS šifrovanie**
    - Využíva 256-bitové kľúče pre šifrovanie aj blokové úpravy
    - Celkový 512-bitový kľúč rozdelený na dve 256-bitové časti
-   - Optimalizovaná implementácia pre embedded systémy
+   - Optimalizovaná implementácia pre embedované systémy
    - Veľkosť blokov: 16 bajtov
    - Implementované pomocou micro-AES knižnice
 
