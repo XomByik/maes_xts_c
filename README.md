@@ -152,7 +152,7 @@ static void secure_clear(void* ptr, size_t size)
   - size: veľkosť pamäte v bajtoch
 - **Proces**:
   1. Konverzia vstupného pointra na volatile uint8_t*
-  2. Postupné prepisanie každej bunky pamäte nulo
+  2. Postupné prepisanie každej bunky pamäte nulou
   3. Pridanie assembler bariéry pre zabránenie optimalizácii
 
 #### 2. hash_password
