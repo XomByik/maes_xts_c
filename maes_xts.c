@@ -19,12 +19,6 @@
  * Bezpecne odvodenie kluca z hesla. Podporuje spracovanie viacerych suborov
  * naraz a testovanie pomocou standardnych IEEE testovacich vektorov.
  * 
- * Detaily implementacie:
- * - Sifrovaci algoritmus: AES-XTS (IEEE 1619-2007)
- * - Odvodenie kluca: 
- * - Velkost bloku: 128 bitov
- * - Salt: 
- * - Pociatocny tweak: 
  * 
  * Pre viac info pozri README.md
  ****************************************************************************/
