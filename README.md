@@ -235,7 +235,7 @@ fc_status_t fc_encrypt_file_with_password(const char* input_path, const char* ou
 - **Proces**:
   1. Overenie vstupných parametrov
   2. Vygenerovanie náhodnej soli a počiatočnej blokovej úpravy
-  3. Derivácia kľúča z hesla
+  3. Odvodenie kľúča z hesla
   4. Vytvorenie a zápis hlavičky
   5. Šifrovanie dát po sektoroch
   6. Uvoľnenie/vyčistenie zdrojov
