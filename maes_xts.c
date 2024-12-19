@@ -22,6 +22,13 @@
 
 #include "maes_xts.h"
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <bcrypt.h>
+#pragma comment(lib, "bcrypt.lib")
+#endif
+
 /**
  * Bezpecne prepisanie citlivych dat v pamati
  * 
@@ -269,10 +276,6 @@ static fc_status_t generate_secure_random(uint8_t* buffer, size_t length) {
 
 #ifdef _WIN32
     // Windows implementacia pomocou BCryptGenRandom
-    #include <windows.h>
-    #include <bcrypt.h>
-    #pragma comment(lib, "bcrypt.lib")
-
     NTSTATUS status = BCryptGenRandom(
         NULL,
         buffer,
