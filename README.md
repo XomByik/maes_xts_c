@@ -233,7 +233,7 @@ fc_status_t fc_encrypt_file_with_password(const char* input_path, const char* ou
   - input_path: cesta k vstupnému súboru
   - output_path: cesta k výstupnému súboru
   - password: heslo od užívateľa
-  **Proces**:
+- **Proces**:
   1. Overenie vstupných parametrov
   2. Vygenerovanie náhodnej soli a počiatočnej blokovej úpravy
   3. Derivácia kľúča z hesla
