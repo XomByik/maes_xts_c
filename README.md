@@ -13,7 +13,7 @@
 Tento program slúži na bezpečné šifrovanie a dešifrovanie súborov pomocou lightweight implementácie AES v XTS režime. Je vhodný pre:
 - Šifrovanie súborov na embedovaných zariadeniach
 - Bezpečné ukladanie dát s minimálnymi nárokmi na pamäť
-- Implementácie kde nie je možné použiť OpenSSL
+- Zariadenia kde nie je možné alebo vhodné použiť väčšie knižnice typu OpenSSL
 
 ### Hlavné výhody
 - Využíva knižnicu micro-AES vhodnú pre embedované systémy (minimálna pamäťová náročnosť)
