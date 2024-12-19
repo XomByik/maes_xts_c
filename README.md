@@ -234,7 +234,7 @@ fc_status_t fc_encrypt_file_with_password(const char* input_path, const char* ou
   - output_path: cesta k výstupnému súboru
   - password: heslo od užívateľa
   **Proces**:
-  1. Validácia vstupných parametrov
+  1. Overenie vstupných parametrov
   2. Vygenerovanie náhodnej soli a počiatočnej blokovej úpravy
   3. Derivácia kľúča z hesla
   4. Vytvorenie a zápis hlavičky
@@ -265,7 +265,7 @@ static void create_decrypted_path(char *output, const char *input)
 - **Proces**:
   1. Analýza vstupnej cesty
   2. Pridanie/odstránenie prípon
-  3. Validácia výstupnej cesty
+  3. Overenie výstupnej cesty
 
 #### 10. Spracovanie chýb
 ```c
