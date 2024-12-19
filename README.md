@@ -25,14 +25,14 @@ Tento program slúži na bezpečné šifrovanie a dešifrovanie súborov pomocou
 
 ### Použité technológie
 
-1. **micro-AES XTS šifrovanie**
+**micro-AES XTS šifrovanie**
    - Využíva 256-bitové kľúče pre šifrovanie aj blokové úpravy
    - Celkový 512-bitový kľúč rozdelený na dve 256-bitové časti
    - Optimalizovaná implementácia pre embedované systémy
    - Veľkosť blokov: 16 bajtov
    - Implementované pomocou micro-AES knižnice
 
-2. **BLAKE3**
+**BLAKE3**
    - Moderná hashovacia funkcia
    - Rýchla aj na menej výkonných zariadeniach
    - Generuje 512-bitový kľúč z hesla
@@ -141,7 +141,7 @@ make
 
 ### Implementované funkcie
 
-#### 1. secure_clear
+#### secure_clear
 ```c
 static void secure_clear(void* ptr, size_t size)
 ```
@@ -154,7 +154,7 @@ static void secure_clear(void* ptr, size_t size)
   2. Postupné prepisanie každej bunky pamäte nulou
   3. Pridanie assembler bariéry pre zabránenie optimalizácii
 
-#### 2. hash_password
+#### hash_password
 ```c
 static fc_status_t hash_password(const char* password, const uint8_t* salt, uint8_t* key1, uint8_t* key2)
 ```
@@ -169,7 +169,7 @@ static fc_status_t hash_password(const char* password, const uint8_t* salt, uint
   2. Hashovanie pomocou BLAKE3
   3. Rozdelenie výsledného hashu na dva kľúče
 
-#### 3. read_password
+#### read_password
 ```c
 static void read_password(char* password, size_t max_len)
 ```
@@ -180,7 +180,7 @@ static void read_password(char* password, size_t max_len)
 - **Proces**:
   - Cross-platform implementácia pre Windows (_getch) a Unix (termios.h)
 
-#### 4. process_sector
+#### process_sector
 ```c
 static void process_sector(uint8_t* buffer, size_t size, uint64_t sector_number, const uint8_t* key, const uint8_t* initial_tweak, int encrypt)
 ```
@@ -197,7 +197,7 @@ static void process_sector(uint8_t* buffer, size_t size, uint64_t sector_number,
   2. XTS šifrovanie/dešifrovanie s vypočítanou blokovou úpravou
   3. Zápis šifrovaných/dešifrovaných dát do buffra
 
-#### 5. calculate_sector_tweak
+#### calculate_sector_tweak
 ```c
 static void calculate_sector_tweak(const unsigned char *initial_tweak, uint64_t sector_number, unsigned char *output_tweak)
 ```
@@ -209,7 +209,8 @@ static void calculate_sector_tweak(const unsigned char *initial_tweak, uint64_t 
 - **Proces**:
   1. Skopírovanie počiatočnej blokovej úpravy
   2. XOR počiatočnej blokovej úpravy s logickým číslom sektora (po dvoch 64-bitových častiach)
-#### 6. generate_secure_random
+
+#### generate_secure_random
 ```c
 static void generate_secure_random(uint8_t* buffer, size_t length)
 ```
@@ -222,7 +223,8 @@ static void generate_secure_random(uint8_t* buffer, size_t length)
   2. Windows: Použitie BCryptGenRandom
   3. Linux: Použitie /dev/urandom
   4. Kontrola úspešnosti generovania
-#### 7. fc_encrypt_file_with_password
+
+#### fc_encrypt_file_with_password
 ```c
 fc_status_t fc_encrypt_file_with_password(const char* input_path, const char* output_path, const char* password)
 ```
@@ -238,7 +240,8 @@ fc_status_t fc_encrypt_file_with_password(const char* input_path, const char* ou
   4. Vytvorenie a zápis hlavičky
   5. Šifrovanie dát po sektoroch
   6. Uvoľnenie/vyčistenie zdrojov
-#### 8. fc_decrypt_file_with_password
+
+#### fc_decrypt_file_with_password
 ```c
 fc_status_t fc_decrypt_file_with_password(const char* input_path, const char* output_path, const char* password)
 ```
@@ -254,7 +257,7 @@ fc_status_t fc_decrypt_file_with_password(const char* input_path, const char* ou
   4. Kontrola integrity dát
   5. Uvoľnenie/vyčistenie zdrojov
 
-#### 9. Pomocné funkcie pre prácu so súbormi
+#### Pomocné funkcie pre prácu so súbormi
 ```c
 static void create_encrypted_path(char *output, const char *input)
 static void create_decrypted_path(char *output, const char *input)
@@ -265,7 +268,7 @@ static void create_decrypted_path(char *output, const char *input)
   2. Pridanie/odstránenie prípon
   3. Overenie výstupnej cesty
 
-#### 10. Spracovanie chýb
+#### Spracovanie chýb
 ```c
 static void handle_crypto_error(fc_status_t status)
 ```
