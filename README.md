@@ -17,7 +17,6 @@ Tento program slúži na bezpečné šifrovanie a dešifrovanie súborov pomocou
 
 ### Hlavné výhody
 - Využíva knižnicu micro-AES vhodnú pre embedované systémy (minimálna pamäťová náročnosť)
-- Jednoduchý na použitie
 - Podporuje súbory ľubovoľnej veľkosti
 - Funguje na Windows aj Linux systémoch
 - Nevyžaduje externé knižnice
