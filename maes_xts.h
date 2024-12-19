@@ -7,17 +7,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
-#include <linux/limits.h>
 
 #ifdef _WIN32
+    #include <limits.h>
     #include <conio.h>    // pre _getch() na Windows
     #include <io.h>       // pre _access() na Windows
     #define F_OK 0
     #define access _access
 #else
     #include <termios.h>
+    #include <linux/limits.h>
     #include <unistd.h>
+#endif
+    #ifdef _WIN32
+        #define WIN32_LEAN_AND_MEAN
+        #include <windows.h>
+        #include <bcrypt.h>
+        #ifdef _MSC_VER
+        #pragma comment(lib, "bcrypt.lib")
+    #endif
 #endif
 
 // Konstanty
