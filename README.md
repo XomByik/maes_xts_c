@@ -10,14 +10,15 @@
 
 ## Základný prehľad
 
-Tento program slúži na bezpečné šifrovanie a dešifrovanie súborov pomocou 
+Tento program slúži na bezpečné šifrovanie a dešifrovanie súborov pomocou
 lightweight implementácie AES v XTS režime. Je vhodný pre:
 - Šifrovanie súborov na embedovaných zariadeniach
 - Bezpečné ukladanie dát s minimálnymi nárokmi na pamäť
 - Zariadenia kde nie je možné alebo vhodné použiť väčšie knižnice typu OpenSSL
 
 ### Hlavné výhody
-- Využíva knižnicu micro-AES vhodnú pre embedované systémy (minimálna pamäťová náročnosť)
+- Využíva knižnicu micro-AES vhodnú pre embedované systémy (minimálna pamäťová
+  náročnosť)
 - Podporuje súbory ľubovoľnej veľkosti
 - Funguje na Windows aj Linux systémoch
 - Nevyžaduje externé knižnice
@@ -45,7 +46,8 @@ lightweight implementácie AES v XTS režime. Je vhodný pre:
    
 2. Príprava hlavičky súboru:
    - Vygenerovanie náhodnej 32-bajtovej soli
-   - Vygenerovanie náhodnej počiatočnej blokovej úpravy (počiatočného čísla sektora)
+   - Vygenerovanie náhodnej počiatočnej blokovej úpravy (počiatočného čísla
+     sektora)
 
 3. Odvodenie kľúčov z hesla a soli:
    - Z hesla a soli sa pomocou BLAKE3 vytvoria dva 256-bitové kľúče
@@ -53,7 +55,8 @@ lightweight implementácie AES v XTS režime. Je vhodný pre:
    - Druhý kľúč pre blokové úpravy
 
 4. Spracovanie súboru po logických sektoroch:
-   - Veľkosť sektora: 512 bajtov (typická veľkosť jedného sektoru pevného disku na Windows/Unix systémoch)
+   - Veľkosť sektora: 512 bajtov (typická veľkosť jedného sektoru pevného disku
+     na Windows/Unix systémoch)
    - Pre každý sektor sa vypočíta bloková úprava z jeho logickej pozície
    - Šifrovanie dát v sektore pomocou AES-XTS
 
@@ -208,7 +211,8 @@ static void calculate_sector_tweak(const unsigned char *initial_tweak, uint64_t 
   - output_tweak: výstupný buffer pre vypočítanú blokovú úpravu (16 bajtov)
 - **Proces**:
   1. Skopírovanie počiatočnej blokovej úpravy
-  2. XOR počiatočnej blokovej úpravy s logickým číslom sektora (po dvoch 64-bitových častiach)
+  2. XOR počiatočnej blokovej úpravy s logickým číslom sektora (po dvoch
+     64-bitových častiach)
 
 #### generate_secure_random
 ```c
