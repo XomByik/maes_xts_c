@@ -18,18 +18,15 @@ endif
 CC := gcc
 # Zakladne flagy pre vsetky zdrojove subory
 CFLAGS := -Wall -Wextra -I.
-# Potlacenie vsetkych warningov pre kniznice aj hlavny program
-SUPPRESSED := -Wno-unused-parameter -Wno-unused-variable -Wno-format
 # SIMD flagy pre BLAKE3
 BLAKE3_DEFS := -DBLAKE3_NO_AVX512 -DBLAKE3_NO_AVX2 -DBLAKE3_NO_SSE41 -DBLAKE3_NO_SSE2
 
-# Add Windows-specific flags if on Windows
+# Add Windows-specific flags and libraries
 ifeq ($(DETECTED_OS),Windows)
     CFLAGS += -D_WIN32 -D_CRT_SECURE_NO_WARNINGS
-    # Add these new flags to fix MinGW issues
     CFLAGS += -DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0601
-    # Add Windows BCrypt library
-    LDFLAGS += -lbcrypt
+    # Pridanie potrebnych Windows kniznic
+    LDFLAGS += -lbcrypt -lkernel32 -lmsvcrt
 endif
 
 # Priecinok pre objektove subory
@@ -40,7 +37,7 @@ SRCS := maes_xts.c
 LIBSRCS := libs$(SEP)micro-AES$(SEP)micro_aes.c \
            libs$(SEP)blake3$(SEP)blake3.c \
            libs$(SEP)blake3$(SEP)blake3_dispatch.c \
-           libs$(SEP)blake3$(SEP)blake3_portable.c \
+           libs$(SEP)blake3$(SEP)blake3_portable.c
 
 # Objektove subory
 OBJS := $(SRCS:%.c=$(OBJDIR)$(SEP)%.o)
@@ -48,7 +45,7 @@ LIBOBJS := $(LIBSRCS:%.c=$(OBJDIR)$(SEP)%.o)
 
 # Hlavny ciel
 $(TARGET): $(OBJDIR) $(OBJS) $(LIBOBJS)
-	$(CC) -o $@ $(OBJS) $(LIBOBJS) $(CFLAGS) $(SUPPRESSED) $(LDFLAGS)
+	$(CC) -o $@ $(OBJS) $(LIBOBJS) $(CFLAGS) $(LDFLAGS)
 
 # Vytvorenie priecinkov pre objektove subory
 $(OBJDIR):
@@ -63,12 +60,12 @@ endif
 # Preklad zdrojovych suborov
 $(OBJDIR)$(SEP)%.o: %.c | $(OBJDIR)
 	@echo "Prekladam $<..."
-	$(CC) $(CFLAGS) $(BLAKE3_DEFS) $(SUPPRESSED) -c $< -o $@
+	$(CC) $(CFLAGS) $(BLAKE3_DEFS) -c $< -o $@
 
-# Preklad kniznic s potlacenymi warningami
+# Preklad kniznic
 $(OBJDIR)$(SEP)libs$(SEP)%.o: libs$(SEP)%.c | $(OBJDIR)
 	@echo "Prekladam kniznicu $<..."
-	$(CC) $(CFLAGS) $(BLAKE3_DEFS) $(SUPPRESSED) -c $< -o $@
+	$(CC) $(CFLAGS) $(BLAKE3_DEFS) -c $< -o $@
 
 # Vycistenie projektu
 clean:

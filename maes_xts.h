@@ -13,6 +13,9 @@
 #include <conio.h>  // pre _getch() na Windows
 #include <io.h>     // pre _access() na Windows
 #include <limits.h>
+#include <windows.h>
+#include <bcrypt.h>
+#include <winnt.h>
 #define F_OK 0
 #define access _access
 #else
@@ -20,15 +23,9 @@
 #include <termios.h>
 #include <unistd.h>
 #endif
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <bcrypt.h>
-#include <windows.h>
 #ifdef _MSC_VER
 #pragma comment(lib, "bcrypt.lib")
 #endif
-#endif
-
 // Konstanty
 #define SALT_SIZE 32  // Velkost soli pre derivaciu klucov
 #define BUFFER_SIZE \

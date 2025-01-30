@@ -1,0 +1,1 @@
+Toto je testovaci subor pre sifrovanie pomocou AES-XTS cez kniznicu microAES a s hashovacim algoritmom BLAKE3

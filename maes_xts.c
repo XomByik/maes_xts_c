@@ -1,8 +1,8 @@
-/****************************************************************************
+/************************************************************************
  * Nazov projektu: AES-XTS Sifrovanie a Desifrovanie Suborov pomocou
  *microAES
  * ----------------------------------------------------------------------------
- * Subor: maes_xts.c Verzia: 1.0.0 Datum: 16.12.2024
+ * Subor: maes_xts.c Verzia: 1.1.0 Datum: 30.1.2025
  *
  * Autor: Kamil Berecky
  *
@@ -17,16 +17,9 @@
  * hashovaciu funkciu BLAKE3 na odvodenie klucov z hesla.
  *
  * Pre viac info pozri README.md
- ****************************************************************************/
+ **********************************************************************/
 
 #include "maes_xts.h"
-
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <bcrypt.h>
-#include <windows.h>
-#pragma comment(lib, "bcrypt.lib")
-#endif
 
 /**
  * Bezpecne prepisanie citlivych dat v pamati
@@ -149,7 +142,7 @@ static void read_password(char* password, size_t max_len) {
     password[i] = '\0';
     printf("\n");
 #else
-    // Unix verzia
+    // Unix verzia zostava nezmenena
     struct termios old_flags, new_flags;
     tcgetattr(STDIN_FILENO, &old_flags);
     new_flags = old_flags;
@@ -505,14 +498,39 @@ static fc_status_t create_decrypted_path(const char* input_path,
     size_t len = strlen(input_path);
     const char* enc_suffix = ".enc";
     const char* dec_prefix = "dec_";
-    // Kontrola, ci ma subor priponu .enc
+    
+    // Kontrola pripony .enc
     if (len < strlen(enc_suffix) ||
         strcmp(input_path + len - strlen(enc_suffix), enc_suffix) != 0) {
         return FC_ERROR_INVALID_EXTENSION;
     }
-    // Odstranime .enc a pridame dec_ na zaciatok
-    snprintf(output_path, max_len, "%s%.*s", dec_prefix,
-             (int)(len - strlen(enc_suffix)), input_path);
+
+    // Najdenie posledneho oddelovaca adresarov
+    const char* filename = input_path;
+    const char* last_sep = strrchr(input_path, '\\');
+    if (last_sep == NULL) {
+        last_sep = strrchr(input_path, '/');
+    }
+    if (last_sep != NULL) {
+        filename = last_sep + 1;
+    }
+
+    // Vytvorenie vystupnej cesty
+    if (last_sep != NULL) {
+        // Ak je cesta s adresarom, zachovame cestu
+        int path_len = (int)(last_sep - input_path + 1);
+        snprintf(output_path, max_len, "%.*s%s%.*s", 
+                path_len, input_path,
+                dec_prefix,
+                (int)(strlen(filename) - strlen(enc_suffix)),
+                filename);
+    } else {
+        // Ak je len nazov suboru
+        snprintf(output_path, max_len, "%s%.*s",
+                dec_prefix,
+                (int)(len - strlen(enc_suffix)),
+                input_path);
+    }
 
     return FC_SUCCESS;
 }
@@ -578,14 +596,25 @@ static fc_status_t handle_decryption(const char* input_path,
 
 // Hlavna funkcia main() s argumentmi prikazoveho riadku
 int main(int argc, char* argv[]) {
-    // Kontrola spravneho poctu argumentov (program + volba + subor)
+    // Ak nie su zadane ziadne argumenty, zobrazime info o verzii
+    if (argc == 1) {
+        printf("AES-XTS sifrovanie a desifrovanie suborov pomocou kniznice micro-AES\n");
+        printf("Verzia: 1.1.0\n");
+        printf("Datum poslednej aktualizacie: 30.1.2025\n");
+        printf("\n");
+        printf("Pouzitie: %s [-e|-d] vstupny_subor\n", argv[0]);
+        printf("  -e: zasifrovat subor (zasifruje a prida priponu .enc)\n");
+        printf("  -d: desifrovat subor (rozsifruje, odstrani priponu .enc a "
+               "prida dec_ na zaciatok)\n");
+        return 0;
+    }
+
+    // Kontrola spravneho poctu argumentov (program + volba + subor)  
     if (argc != 3) {
         printf("Pouzitie: %s [-e|-d] vstupny_subor\n", argv[0]);
-        printf(
-            "  -e: zasifrovat subor (zasifruje a prida priponu .enc)\n");
-        printf(
-            "  -d: desifrovat subor (rozsifruje, odstrani priponu .enc a "
-            "prida dec_ na zaciatok)\n");
+        printf("  -e: zasifrovat subor (zasifruje a prida priponu .enc)\n");
+        printf("  -d: desifrovat subor (rozsifruje, odstrani priponu .enc a "
+               "prida dec_ na zaciatok)\n");
         return 1;
     }
 
@@ -599,7 +628,6 @@ int main(int argc, char* argv[]) {
     read_password(password, MAX_PASSWORD_LENGTH);
     // Spracovanie podla zvolenej operacie
     fc_status_t status;
-    char output_path[PATH_MAX];
 
     if (strcmp(argv[1], "-e") == 0) {
         // Sifrovanie suboru
