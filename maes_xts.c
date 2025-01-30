@@ -188,7 +188,7 @@ static void read_password(char* password, size_t max_len) {
 static void process_sector(const uint8_t* ptx, uint8_t* ctx, size_t size,
                            uint64_t sector_number, const uint8_t* key,
                            const uint8_t* initial_tweak, int encrypt) {
-    uint8_t tweak[16];
+    uint8_t tweak[TWEAK_LENGTH];
     calculate_sector_tweak(initial_tweak, sector_number, tweak);
 
     if (encrypt) {
@@ -220,9 +220,9 @@ static void process_sector(const uint8_t* ptx, uint8_t* ctx, size_t size,
  * @param sector_number - Cislo sektora
  * @param output_tweak - Vystupny buffer pre tweak (16 bajtov)
  */
-static void calculate_sector_tweak(const unsigned char* initial_tweak,
+static void calculate_sector_tweak(const uint8_t* initial_tweak,
                                    uint64_t sector_number,
-                                   unsigned char* output_tweak) {
+                                   uint8_t* output_tweak) {
     // Skopirovanie pociatocneho tweaku (128 bitov)
     memcpy(output_tweak, initial_tweak, TWEAK_LENGTH);
 

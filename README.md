@@ -45,20 +45,24 @@ lightweight implementácie AES v XTS režime. Je vhodný pre:
    - Heslo od používateľa
    
 2. Príprava hlavičky súboru:
-   - Vygenerovanie náhodnej 32-bajtovej soli
-   - Vygenerovanie náhodnej počiatočnej blokovej úpravy (počiatočného čísla
-     sektora)
+   - Vygenerovanie náhodnej 128-bitovej soli cez CSPRNG
+   - Vygenerovanie náhodnej 128-bitovej počiatočnej blokovej úpravy (počiatočného čísla
+     sektora) cez CSPRNG
+   - Uloženie salt a počiatočnej blokovej úpravy na začiatok súboru
+   - Tento prístup generovania počiatočnej blokovej úpravy zabezpečuje, že súbor je možné rozšifrovať na rôznych miestach
 
 3. Odvodenie kľúčov z hesla a soli:
    - Z hesla a soli sa pomocou BLAKE3 vytvoria dva 256-bitové kľúče
    - Prvý kľúč pre šifrovanie dát
-   - Druhý kľúč pre blokové úpravy
+   - Druhý kľúč pre šifrovanie blokových úprav
 
 4. Spracovanie súboru po logických sektoroch:
    - Veľkosť sektora: 512 bajtov (typická veľkosť jedného sektoru pevného disku
      na Windows/Unix systémoch)
-   - Pre každý sektor sa vypočíta bloková úprava z jeho logickej pozície
-   - Šifrovanie dát v sektore pomocou AES-XTS
+   - Pre každý sektor sa vypočíta jedinečná bloková úprava
+   - Bloková úprava = počiatočná bloková úprava XOR číslo_sektora
+   - Číslo sektora je v našom prípade logická pozícia (posun pri prechádzaní) v súbore
+   - Šifrovanie dát v sektore pomocou AES-XTS s vypočítanou blokovou úpravou
 
 ### Proces dešifrovania
 1. Zadanie vstupných parametrov:
@@ -136,10 +140,10 @@ make
 
 ### Formát šifrovaného súboru
 ```
-+----------------+--------------------+--------------------+
-| SALT           | Počiatočný sektor  | Šifrované dáta     |
-| (32 bajtov)    | (8 bajtov)         | (n-bajtov)         |
-+----------------+--------------------+--------------------+
++----------------+---------------------+----------------------------+
+| SALT           | Počiatočná bloková úprava   | Šifrované dáta     |
+| (32 bajtov)    | (32 bajtov)                 | (n-bajtov)         |
++----------------+---------------------+----------------------------+
 ```
 
 ### Implementované funkcie
@@ -206,9 +210,9 @@ static void calculate_sector_tweak(const unsigned char *initial_tweak, uint64_t 
 ```
 - **Účel**: Výpočet blokovej úpravy pre konkrétny sektor
 - **Parametre**: 
-  - initial_tweak: počiatočná bloková úprava (16 bajtov)
-  - sector_number: číslo sektora
-  - output_tweak: výstupný buffer pre vypočítanú blokovú úpravu (16 bajtov)
+  - initial_tweak: počiatočná bloková úprava vygenerovaná CSPRNG (128 bitov)
+  - sector_number: logické číslo sektora (pozícia v súbore)
+  - output_tweak: výstupný buffer pre vypočítanú blokovú úpravu (128 bitov)
 - **Proces**:
   1. Skopírovanie počiatočnej blokovej úpravy
   2. XOR počiatočnej blokovej úpravy s logickým číslom sektora (po dvoch

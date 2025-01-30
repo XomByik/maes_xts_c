@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "libs/blake3/blake3.h"
 #include "libs/micro-AES/micro_aes.h"
@@ -34,7 +35,7 @@
 #define SECTOR_SIZE 512           // Standardna velkost sektora na disku
 #define BLOCK_SIZE 16             // Velkost bloku pre AES sifrovanie
 #define MAX_PASSWORD_LENGTH 1024  // Maximalna dlzka hesla
-#define TWEAK_LENGTH 16           // Velkost blokovej upravy
+#define TWEAK_LENGTH 32           // Velkost blokovej upravy
 
 // Navratove kody
 
@@ -52,7 +53,7 @@ typedef enum {
 // Hlavicka sifrovaneho suboru
 struct file_header {
     uint8_t salt[SALT_SIZE];    // Sol pre derivaciu klucov
-    uint8_t initial_tweak[16];  // Pociatocny tweak pre XTS rezim
+    uint8_t initial_tweak[TWEAK_LENGTH];  // Pociatocny tweak pre XTS rezim
 };
 
 // Pomocne funkcie pre pracu so subormi
@@ -69,9 +70,9 @@ fc_status_t fc_encrypt_file_with_password(const char* input_path,
 fc_status_t fc_decrypt_file_with_password(const char* input_path,
                                           const char* output_path,
                                           const char* password);
-static void calculate_sector_tweak(const unsigned char* initial_tweak,
+static void calculate_sector_tweak(const uint8_t* initial_tweak,
                                    uint64_t sector_number,
-                                   unsigned char* output_tweak);
+                                   uint8_t* output_tweak);
 static void handle_crypto_error(fc_status_t status);
 static fc_status_t handle_encryption(const char* input_path,
                                      const char* password);
