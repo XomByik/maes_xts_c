@@ -5,7 +5,7 @@
  * Verzia: 1.0
  * Datum: 25.3.2025
  *
- * Autor: Kamil Berecky (Adapted by GitHub Copilot)
+ * Autor: Kamil Berecky
  *
  * Popis: Hlavickovy subor pre implementaciu AES-XTS sifrovania a
  * desifovania diskov pomocou micro-AES kniznice a BLAKE3 KDF.
