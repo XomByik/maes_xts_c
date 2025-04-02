@@ -4,4 +4,4 @@ maes_xts
 *.o
 *~
 .vscode/
-create_partiton.sh
+create_partition.sh
