@@ -5,6 +5,7 @@ ifeq ($(OS),Windows_NT)
     RM := del /F /Q
     MKDIR := mkdir
     RMDIR := rmdir /S /Q
+    # SEP pre OS prikazy, interne pouzijeme /
     SEP := \\
 else
     DETECTED_OS := $(shell uname -s)
@@ -17,9 +18,11 @@ endif
 
 CC := gcc
 # Zakladne flagy pre vsetky zdrojove subory
-CFLAGS := -Wall -Wextra -I.
-# SIMD flagy pre BLAKE3
-BLAKE3_DEFS := -DBLAKE3_NO_AVX512 -DBLAKE3_NO_AVX2 -DBLAKE3_NO_SSE41 -DBLAKE3_NO_SSE2
+# Pridane -g pre debug symboly standardne
+CFLAGS := -g -Wall -Wextra -I. -DBLAKE3_NO_AVX512 -DBLAKE3_NO_AVX2 -DBLAKE3_NO_SSE41 -DBLAKE3_NO_SSE2 -fopenmp
+LDLIBS := -lm
+# Add -fopenmp for linking if needed, depending on the compiler/linker
+LDFLAGS := -fopenmp
 
 # Add Windows-specific flags and libraries
 ifeq ($(DETECTED_OS),Windows)
@@ -29,50 +32,60 @@ ifeq ($(DETECTED_OS),Windows)
     LDFLAGS += -lbcrypt -lkernel32 -lmsvcrt
 endif
 
-# Priecinok pre objektove subory
+# Priecinok pre objektove subory (pouzivame /)
 OBJDIR := .build
 
-# Zdrojove subory
+# Zdrojove subory (pouzivame /)
 SRCS := maes_xts.c
-LIBSRCS := libs$(SEP)micro-AES$(SEP)micro_aes.c \
-           libs$(SEP)blake3$(SEP)blake3.c \
-           libs$(SEP)blake3$(SEP)blake3_dispatch.c \
-           libs$(SEP)blake3$(SEP)blake3_portable.c
+LIBSRCS := libs/micro-AES/micro_aes.c \
+           libs/blake3/blake3.c \
+           libs/blake3/blake3_dispatch.c \
+           libs/blake3/blake3_portable.c
 
-# Objektove subory
-OBJS := $(SRCS:%.c=$(OBJDIR)$(SEP)%.o)
-LIBOBJS := $(LIBSRCS:%.c=$(OBJDIR)$(SEP)%.o)
+# Objektove subory (pouzivame /)
+OBJS := $(patsubst %.c,$(OBJDIR)/%.o,$(SRCS))
+LIBOBJS := $(patsubst %.c,$(OBJDIR)/%.o,$(LIBSRCS))
 
 # Hlavny ciel
-$(TARGET): $(OBJDIR) $(OBJS) $(LIBOBJS)
-	$(CC) -o $@ $(OBJS) $(LIBOBJS) $(CFLAGS) $(LDFLAGS)
+$(TARGET): $(OBJS) $(LIBOBJS)
+	$(CC) $(LDFLAGS) $^ -o $@ $(LDLIBS)
 
 # Vytvorenie priecinkov pre objektove subory
+# Upravene pre Windows, aby vytvaralo podadresar
 $(OBJDIR):
 ifeq ($(DETECTED_OS),Windows)
-	@if not exist "$(OBJDIR)\libs\micro-AES" mkdir "$(OBJDIR)\libs\micro-AES"
-	@if not exist "$(OBJDIR)\libs\blake3" mkdir "$(OBJDIR)\libs\blake3"
+	@if not exist "$(subst /,\,$(OBJDIR))" $(MKDIR) "$(subst /,\,$(OBJDIR))"
+	@if not exist "$(subst /,\,$(OBJDIR)/libs)" $(MKDIR) "$(subst /,\,$(OBJDIR)/libs)"
+	@if not exist "$(subst /,\,$(OBJDIR)/libs/micro-AES)" $(MKDIR) "$(subst /,\,$(OBJDIR)/libs/micro-AES)"
+	@if not exist "$(subst /,\,$(OBJDIR)/libs/blake3)" $(MKDIR) "$(subst /,\,$(OBJDIR)/libs/blake3)"
 else
 	$(MKDIR) $(OBJDIR)/libs/micro-AES
 	$(MKDIR) $(OBJDIR)/libs/blake3
 endif
 
-# Preklad zdrojovych suborov
-$(OBJDIR)$(SEP)%.o: %.c | $(OBJDIR)
+# Pravidlo pre preklad zdrojovych suborov v hlavnom adresari
+$(OBJDIR)/%.o: %.c | $(OBJDIR)
 	@echo "Prekladam $<..."
-	$(CC) $(CFLAGS) $(BLAKE3_DEFS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
-# Preklad kniznic
-$(OBJDIR)$(SEP)libs$(SEP)%.o: libs$(SEP)%.c | $(OBJDIR)
+# Pravidlo pre preklad kniznic (potrebuje explicitnejsiu cestu)
+$(OBJDIR)/libs/micro-AES/%.o: libs/micro-AES/%.c | $(OBJDIR)
 	@echo "Prekladam kniznicu $<..."
-	$(CC) $(CFLAGS) $(BLAKE3_DEFS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJDIR)/libs/blake3/%.o: libs/blake3/%.c | $(OBJDIR)
+	@echo "Prekladam kniznicu $<..."
+	$(CC) $(CFLAGS) -c $< -o $@
+
 
 # Vycistenie projektu
 clean:
 ifeq ($(DETECTED_OS),Windows)
-	@if exist "$(OBJDIR)" $(RMDIR) "$(OBJDIR)"
+	@if exist "$(subst /,\,$(OBJDIR))" $(RMDIR) "$(subst /,\,$(OBJDIR))"
+	@if exist "$(TARGET)" $(RM) "$(TARGET)"
 else
-	$(RMDIR) $(OBJDIR) 
+	$(RMDIR) $(OBJDIR)
+	$(RM) $(TARGET)
 endif
 
 .PHONY: clean
