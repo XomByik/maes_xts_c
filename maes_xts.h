@@ -118,7 +118,7 @@
 // XTS potrebuje dva kluce  
 #define MAES_XTS_KEY_BYTES (MAES_KEY_BYTES * 2) 
 // Velkost tweak vektora je rovnaka ako bloku 
-#define MAES_TWEAK_SIZE BLOCK_SIZE   
+#define MAES_TWEAK_SIZE AES_BLOCK_SIZE   
 // Pocet bitov v bajte           
 #define BITS_PER_BYTE 8    
 // Oznacenie rezimu sifrovania                      
