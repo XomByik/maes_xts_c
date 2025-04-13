@@ -5,3 +5,5 @@ maes_xts
 *~
 .vscode/
 create_partition.sh
+disk.img
+mnt/

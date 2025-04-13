@@ -1281,7 +1281,7 @@ void AES_CCM_encrypt( const uint8_t* key, const uint8_t* nonce,
  * @param   crtxtLen  size of ciphertext, excluding tag
  * @param   aData     additional authentication data
  * @param   aDataLen  size of additional authentication data
- * @param   tagLen    length of authentication tag
+ * @param   tagLen    length of authentication tag; MUST be 16 bytes
  * @param   pntxt     resulting plaintext buffer
  * @return            whether message decryption/authentication was successful
  */
@@ -1563,6 +1563,7 @@ void AES_EAX_encrypt( const uint8_t* key, const uint8_t* nonce,
 #else
 #define FDOUBLE_T     &doubleBblock
 #define nonceLen      EAX_NONCE_LEN
+#define nonceLen      EAX_NONCE_LEN
                       const uint8_t* aData, const size_t aDataLen,
                       uint8_t* crtxt, block_t auTag )
 #endif
@@ -1651,7 +1652,7 @@ char AES_EAX_decrypt( const uint8_t* key, const uint8_t* nonce,
 \*----------------------------------------------------------------------------*/
 #if IMPLEMENT(OCB)
 
-static void nop( const block_t x, block_t y ) {}
+static void nop( const block_t x __attribute__((unused)), block_t y __attribute__((unused)) ) {}
 
 /** Calculate the offset block (Δ_i) at a specified index, given the initial Δ_0
  * and L$ blocks. This method has minimum memory usage, but it might be slow. To
