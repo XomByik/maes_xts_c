@@ -1,3 +1,25 @@
+/************************************************************************
+ * Nazov projektu: AES-XTS sifrovanie a desifrovanie diskov pomocou micro-AES
+ * -----------------------------------------------------------------------
+ * Subor: maes_xts.c
+ * Verzia: 1.3
+ * Datum: 13.4.2025
+ *
+ * Autor: Kamil Berecky
+ *
+ * Popis: Implementacia nastroja pre sifrovanie a desifrovanie diskov a oddielov
+ * pomocou AES-XTS algoritmu a kniznice micro-AES. Program zabezpecuje
+ * priamu manipulaciu so zariadeniami na urovni sektorov, spracovava metadata
+ * sifrovania v hlavicke a implementuje bezpecne odvodzovanie klucov pomocou
+ * BLAKE3 KDF.
+ * 
+ * Vyuzite zdroje:
+ * - micro-AES kniznica: https://github.com/polfosol/micro-AES
+ * - BLAKE3 hasovacia funkcia: https://github.com/BLAKE3-team/BLAKE3
+ * - IEEE 1619-2007 (XTS-AES): https://standards.ieee.org/standard/1619-2007.html
+ * 
+ * Pre viac info pozri README.md
+ **********************************************************************/
 #include "maes_xts.h"
 
 static ssize_t read_sectors_block(device_context_t *ctx, uint8_t *buffer,
@@ -6,6 +28,25 @@ static ssize_t write_sectors_block(device_context_t *ctx, uint8_t *buffer,
                                    size_t bytesToWrite,
                                    uint64_t currentOffset);
 
+/**
+ * Zobrazuje priebeh operacie
+ *
+ * Popis: Funkcia zobrazuje percentualny priebeh prebiehajucej operacie
+ * (sifrovania/desifovania). Aktualizuje sa v intervaloch definovanych
+ * konstantou PROGRESS_UPDATE_INTERVAL alebo kazdych 1 sekundu.
+ *
+ * Proces:
+ * 1. Kontrola ci je cas na aktualizaciu zobrazenia
+ * 2. Vypocet percenta hotovej prace a prevedenych MB
+ * 3. Formatovany vypis informacii na standardny vystup
+ *
+ * Parametre:
+ * @param current - Aktualny pocet spracovanych bajtov
+ * @param total - Celkovy pocet bajtov na spracovanie
+ * @param sector_num - Aktualne cislo spracovavaneho sektora
+ *
+ * Navratova hodnota: ziadna (void)
+ */
 void show_progress(uint64_t current, uint64_t total, uint64_t sector_num) {
   static uint64_t last_update_time = 0;
   uint64_t current_time = time(NULL);
@@ -33,6 +74,30 @@ void show_progress(uint64_t current, uint64_t total, uint64_t sector_num) {
   }
 }
 
+/**
+ * Spracovava sektory disku pre sifrovanie alebo desifrovanie
+ *
+ * Popis: Hlavna funkcia, ktora spracovava sektory disku postupne
+ * v blokoch, aplikuje AES-XTS sifrovanie/desifrovanie pre kazdy sektor
+ * a zobrazuje priebeh operacie.
+ *
+ * Proces:
+ * 1. Overenie vstupnych parametrov a alokacia bufferov
+ * 2. Iteracia cez sektory disku v blokoch
+ * 3. Spracovanie specialnych pripadov (hlavickovy sektor)
+ * 4. Aplikacia AES-XTS sifrovania/desifovania na kazdy sektor
+ * 5. Zapis spracovanych dat spat na zariadenie
+ * 6. Zobrazenie priebehu operacie
+ *
+ * Parametre:
+ * @param ctx - Kontext zariadenia obsahujuci informacie o disku
+ * @param derived_key - Odvodeny kryptograficky kluc pre AES-XTS
+ * @param start_sector - Cislo sektora, od ktoreho sa zacina spracovanie
+ * @param encrypt - Priznak ci sa jedna o sifrovanie (1) alebo desifrovanie (0)
+ *
+ * Navratova hodnota:
+ * @return int - Navratovy kod indikujuci uspech (MAES_SUCCESS) alebo chybu
+ */
 int process_sectors(device_context_t *ctx, const uint8_t *derived_key,
                     uint64_t start_sector, int encrypt) {
   const uint64_t startOffset = start_sector * SECTOR_SIZE;
@@ -218,6 +283,27 @@ int process_sectors(device_context_t *ctx, const uint8_t *derived_key,
   return result_code;
 }
 
+/**
+ * Operacie s hlavickou sifrovaneho zariadenia
+ *
+ * Popis: Funkcia zabezpecuje citanie a zapis hlavicky sifrovaneho
+ * zariadenia. Hlavicka obsahuje metadata potrebne pre spravne desifrovanie.
+ *
+ * Proces:
+ * 1. Alokacia buffera zarovnaneho na velkost sektora
+ * 2. Nastavenie pozicie na hlavickovy sektor
+ * 3. Citanie alebo zapis hlavicky
+ * 4. V pripade citania validacia hlavicky
+ * 5. Bezpecne vymazanie citlivych dat z pamate
+ *
+ * Parametre:
+ * @param ctx - Kontext zariadenia
+ * @param header - Struktura pre hlavicku, ktora sa ma zapisat alebo nacitat
+ * @param isWrite - Ak 1, hlavicka sa zapisuje, ak 0, hlavicka sa cita
+ *
+ * Navratova hodnota:
+ * @return int - Navratovy kod indikujuci uspech alebo typ chyby
+ */
 int header_io(device_context_t *ctx, maes_header_t *header, int isWrite) {
   uint8_t *sector = allocate_aligned_buffer(SECTOR_SIZE);
   if (!sector) {
@@ -284,6 +370,29 @@ cleanup:
   return result;
 }
 
+/**
+ * Sifruje cele zariadenie pomocou AES-XTS
+ *
+ * Popis: Vykonava kompletny proces sifrovania zariadenia, vrátane
+ * vytvorenia a ulozenia hlavicky, odvodenia kluca, vytvorenia
+ * verifikacneho bloku a sifrovania vsetkych sektorov.
+ *
+ * Proces:
+ * 1. Inicializacia hlavicky a kontrola uzivatelskej konfirmacie
+ * 2. Generovanie soli a odvodenie kluca z hesla
+ * 3. Vytvorenie verifikacneho bloku pre overenie hesla
+ * 4. Zapis hlavicky na zariadenie
+ * 5. Spracovanie a zaSifrovanie vsetkych sektorov zariadenia
+ * 6. Bezpecne vymazanie citlivych dat z pamate
+ *
+ * Parametre:
+ * @param ctx - Kontext zariadenia
+ * @param device_path - Cesta k zariadeniu (pre uzivatelske potvrdenie)
+ * @param password - Heslo zadane uzivatelom
+ *
+ * Navratova hodnota:
+ * @return int - Navratovy kod indikujuci uspech alebo typ chyby
+ */
 int encrypt_device(device_context_t *ctx, const char *device_path,
                    const uint8_t *password) {
   maes_header_t header = {0};
@@ -342,6 +451,27 @@ cleanup_encrypt:
   return result;
 }
 
+/**
+ * Desifruje cele zariadenie pomocou AES-XTS
+ *
+ * Popis: Vykonava kompletny proces desifovania zariadenia, vrátane
+ * citania hlavicky, odvodenia kluca, overenia hesla pomocou
+ * verifikacneho bloku a desifovania vsetkych sektorov.
+ *
+ * Proces:
+ * 1. Nacitanie a kontrola hlavicky
+ * 2. Odvodenie kluca z hesla a ulozeneej soli
+ * 3. Overenie spravnosti hesla pomocou verifikacneho bloku
+ * 4. Spracovanie a deSifrovanie vsetkych sektorov zariadenia
+ * 5. Bezpecne vymazanie citlivych dat z pamate
+ *
+ * Parametre:
+ * @param ctx - Kontext zariadenia
+ * @param password - Heslo zadane uzivatelom
+ *
+ * Navratova hodnota:
+ * @return int - Navratovy kod indikujuci uspech alebo typ chyby
+ */
 int decrypt_device(device_context_t *ctx, const uint8_t *password) {
   maes_header_t header = {0};
   int result = 0;
@@ -398,6 +528,27 @@ cleanup_decrypt:
   return result;
 }
 
+/**
+ * Spracovanie argumentov prikazoveho riadka
+ *
+ * Popis: Analyzuje argumenty zadane pri spusteni programu a nastavuje
+ * rezim operacie a cestu k zariadeniu.
+ *
+ * Proces:
+ * 1. Overenie poctu argumentov
+ * 2. Identifikacia operacie (encrypt/decrypt)
+ * 3. Nastavenie cesty k zariadeniu
+ * 4. Upozornenie na prebytocne argumenty
+ *
+ * Parametre:
+ * @param argc - Pocet argumentov prikazoveho riadka
+ * @param argv - Pole retazcov obsahujucich argumenty
+ * @param mode - Vystupny parameter pre rezim operacie ('e' alebo 'd')
+ * @param device_path - Vystupny parameter pre cestu k zariadeniu
+ *
+ * Navratova hodnota:
+ * @return bool - true ak analyza prebehla uspesne, inak false
+ */
 bool parse_arguments(int argc, char *argv[], char *mode,
                      const char **device_path) {
   if (argc < 3) {
@@ -428,6 +579,23 @@ bool parse_arguments(int argc, char *argv[], char *mode,
   return true;
 }
 
+/**
+ * Zobrazuje napovedu pouzitia programu
+ *
+ * Popis: Vypise na standardny vystup podrobnu napovedu o pouziti
+ * programu, dostupnych parametroch a prikladoch pouzitia.
+ *
+ * Proces:
+ * 1. Vypis hlavicky a zakladneho popisu programu
+ * 2. Zobrazenie syntaxe pouzitia programu
+ * 3. Vysvetlenie jednotlivych parametrov
+ * 4. Zobrazenie prikladov pouzitia pre dane platformy
+ *
+ * Parametre:
+ * @param prog_name - Nazov programu (argv[0])
+ *
+ * Navratova hodnota: ziadna (void)
+ */
 void print_usage(const char *prog_name) {
   printf("MAES-XTS Nastroj na sifrovanie diskov/oddielov (micro-AES + "
          "BLAKE3 KDF)\n");
@@ -452,6 +620,27 @@ void print_usage(const char *prog_name) {
 #endif
 }
 
+/**
+ * Odvodzuje kryptograficky kluc z hesla pomocou BLAKE3 KDF
+ *
+ * Popis: Vytvara bezpecny kryptograficky kluc z hesla a soli pomocou
+ * BLAKE3 algoritmu v rezime KDF (Key Derivation Function).
+ *
+ * Proces:
+ * 1. Inicializacia BLAKE3 hasera v rezime odvodzovania kluca
+ * 2. Pridanie soli do vstupnych dat
+ * 3. Pridanie hesla do vstupnych dat
+ * 4. Finalizacia a extrahovanie kluca pozadovanej dlzky
+ *
+ * Parametre:
+ * @param password - Heslo zadane uzivatelom
+ * @param salt - Sol pouzita pre KDF
+ * @param output_key - Vystupny buffer pre odvodeny kluc
+ * @param key_len - Pozadovana dlzka vysledneho kluca v bajtoch
+ *
+ * Navratova hodnota:
+ * @return int - MAES_SUCCESS pri uspesnom odvodzeni alebo chybovy kod
+ */
 int derive_key_from_password(const uint8_t *password,
                              const uint8_t salt[SALT_SIZE],
                              uint8_t *output_key, size_t key_len) {
@@ -468,6 +657,26 @@ int derive_key_from_password(const uint8_t *password,
   return MAES_SUCCESS;
 }
 
+/**
+ * Bezpecne nacita heslo od uzivatela
+ *
+ * Popis: Funkcia zabezpecuje bezpecne nacitanie hesla od uzivatela
+ * bez jeho zobrazenia na obrazovke (nahradzuje sa hviezdickou).
+ *
+ * Proces:
+ * 1. Zobrazi vyzvu pre zadanie hesla
+ * 2. Prepne terminal do modu bez zobrazenia vstupnych znakov
+ * 3. Nacitava znaky, zobrazi "*" za kazdy zadany znak
+ * 4. Spracovava specialne znaky (backspace, enter)
+ * 5. Obnovi povodny mod terminaloveho vstupu
+ *
+ * Parametre:
+ * @param password - Vystupny buffer pre nacitane heslo
+ * @param max_len - Maximalna dlzka hesla
+ * @param prompt - Text vyzvy pre zadanie hesla
+ *
+ * Navratova hodnota: ziadna (void)
+ */
 void read_password(uint8_t *password, size_t max_len, const char *prompt) {
   printf("%s", prompt);
   fflush(stdout);
@@ -518,6 +727,23 @@ void read_password(uint8_t *password, size_t max_len, const char *prompt) {
   printf("\n");
 }
 
+/**
+ * Ziska potvrdenie od uzivatela pred sifrovanim
+ *
+ * Popis: Zobrazi upozornenie, ze vsetky data na zariadeni budu znicene
+ * a vyzaduje potvrdenie uzivatela pred pokracovanim.
+ *
+ * Proces:
+ * 1. Zobrazi varovanie o dosledkoch operacie
+ * 2. Nacita odpoved uzivatela (a/n)
+ * 3. Spracuje a vyhodnoti odpoved
+ *
+ * Parametre:
+ * @param device_path - Cesta k zariadeniu, ktore bude zasifrovane
+ *
+ * Navratova hodnota:
+ * @return bool - true ak uzivatel potvrdil operaciu, inak false
+ */
 bool process_user_confirmation(const char *device_path) {
   printf("UPOZORNENIE: Vsetky data na zariadeni %s budu zasifrovane!\n",
          device_path);
@@ -541,6 +767,28 @@ bool process_user_confirmation(const char *device_path) {
           confirm == 'Y');
 }
 
+/**
+ * Spracovava vstup hesla s volitelnym overenim zhody
+ *
+ * Popis: Zabezpecuje proces zadavania hesla, vratane zobrazenia
+ * bezpecnostnych odporucani, overenia dlzky a volitelneho druheho
+ * zadania pre kontrolu zhody (pri sifrovani).
+ *
+ * Proces:
+ * 1. Pri sifrovani zobrazenie bezpecnostnych odporucani pre heslo
+ * 2. Nacitanie hesla z konzoly
+ * 3. Kontrola minimalnej dlzky hesla a zobrazenie varovania
+ * 4. Volitelne druhe zadanie hesla pre overenie zhody
+ * 5. Bezpecne vymazanie citlivych dat v pripade chyby
+ *
+ * Parametre:
+ * @param password - Vystupny buffer pre heslo
+ * @param password_size - Velkost buffera pre heslo
+ * @param verify - Ak 1, vyzaduje sa potvrdenie hesla (pre sifrovanie)
+ *
+ * Navratova hodnota:
+ * @return bool - true ak heslo bolo uspesne zadane, inak false
+ */
 bool process_password_input(uint8_t *password, size_t password_size,
                             int verify) {
   uint8_t confirm_password[PASSWORD_BUFFER_SIZE];
@@ -585,6 +833,23 @@ bool process_password_input(uint8_t *password, size_t password_size,
   return true;
 }
 
+/**
+ * Generuje nahodnu sol pre pouzitie v KDF
+ *
+ * Popis: Vytvara nahodnu sol, ktora sa kombinuje s heslom
+ * pre zvysenie odolnosti voci slovnikovym a rainbow table utokom.
+ *
+ * Proces:
+ * 1. Inicializacia generatora nahodnych cisel aktualnymi casovymi a systemovymi udajmi
+ * 2. Generovanie nahodnych bajtov do buffera sol
+ *
+ * Parametre:
+ * @param salt_buffer - Vystupny buffer pre vygenerovanu sol
+ * @param salt_size - Velkost soli v bajtoch
+ *
+ * Navratova hodnota:
+ * @return bool - true ak sa sol uspesne vygenerovala, inak false
+ */
 bool generate_salt(uint8_t *salt_buffer, size_t salt_size) {
 #ifdef _WIN32
   srand((unsigned int)time(NULL) ^ GetCurrentProcessId());
@@ -601,7 +866,23 @@ bool generate_salt(uint8_t *salt_buffer, size_t salt_size) {
 }
 
 #ifdef _WIN32
-
+/**
+ * Kontroluje ci ma proces administratorske opravnenia
+ *
+ * Popis: Zistuje ci aktualny proces bezi s administratorskymi opravneniami,
+ * co je potrebne pre pristup k diskovym zariadeniam na systemovej urovni.
+ *
+ * Proces:
+ * 1. Inicializacia SID autority a struktury
+ * 2. Alokacia a inicializacia SID pre administratorsku skupinu
+ * 3. Kontrola clenstva aktualneho tokenu v administratorskej skupine
+ * 4. Uvolnenie SID a navrat vysledku
+ *
+ * Parametre: ziadne
+ *
+ * Navratova hodnota:
+ * @return BOOL - TRUE ak ma proces administratorske opravnenia, inak FALSE
+ */
 BOOL is_admin(void) {
   BOOL isAdmin = FALSE;
   SID_IDENTIFIER_AUTHORITY NtAuthority = SECURITY_NT_AUTHORITY;
@@ -615,12 +896,45 @@ BOOL is_admin(void) {
   return isAdmin;
 }
 
+/**
+ * Urcuje typ zariadenia podla cesty
+ *
+ * Popis: Rozlisuje medzi fyzickym diskom a logickym oddielom na zaklade
+ * formatu cesty k zariadeniu.
+ *
+ * Proces:
+ * 1. Kontrola, ci cesta zacina prefixom "\\\\.\\PhysicalDrive"
+ * 2. Navrat prislusneho enumeracneho typu
+ *
+ * Parametre:
+ * @param path - Cesta k zariadeniu
+ *
+ * Navratova hodnota:
+ * @return device_type_t - DEVICE_TYPE_DISK alebo DEVICE_TYPE_VOLUME
+ */
 device_type_t get_device_type(const char *path) {
   return (strncmp(path, "\\\\.\\PhysicalDrive", 17) == 0)
              ? DEVICE_TYPE_DISK
              : DEVICE_TYPE_VOLUME;
 }
 
+/**
+ * Uzamkne a odpoji logicky oddiel
+ *
+ * Popis: Uzamkne a odpoji Windows logicky oddiel, aby sa zabranilo
+ * konkurencnemu pristupu a poskodeniu suboroveho systemu.
+ *
+ * Proces:
+ * 1. Pokus o uzamknutie oddielu pomocou FSCTL_LOCK_VOLUME
+ * 2. Pokus o odpojenie oddielu pomocou FSCTL_DISMOUNT_VOLUME
+ * 3. V pripade zlyhania uvolnenie zamku
+ *
+ * Parametre:
+ * @param hDevice - Handle na otvorene zariadenie
+ *
+ * Navratova hodnota:
+ * @return BOOL - TRUE v pripade uspesnej operacie, inak FALSE
+ */
 BOOL lock_and_dismount_volume(HANDLE hDevice) {
   DWORD bytesReturned;
   if (!DeviceIoControl(hDevice, FSCTL_LOCK_VOLUME, NULL, 0, NULL, 0,
@@ -639,6 +953,22 @@ BOOL lock_and_dismount_volume(HANDLE hDevice) {
   return TRUE;
 }
 
+/**
+ * Odomkne predtym zamknuty disk alebo oddiel
+ *
+ * Popis: Odomkne disk alebo oddiel, ktory bol predtym zamknuty
+ * pomocou FSCTL_LOCK_VOLUME volania.
+ *
+ * Proces:
+ * 1. Overenie platnosti handle
+ * 2. Volanie FSCTL_UNLOCK_VOLUME
+ * 3. Spracovanie pripadnych chyb
+ *
+ * Parametre:
+ * @param hDevice - Handle na otvorene zariadenie
+ *
+ * Navratova hodnota: ziadna (void)
+ */
 void unlock_disk(HANDLE hDevice) {
   if (hDevice != INVALID_HANDLE_VALUE) {
     DWORD bytesReturned;
@@ -652,6 +982,21 @@ void unlock_disk(HANDLE hDevice) {
   }
 }
 
+/**
+ * Kontroluje a zobrazuje informacie o pristupe k Windows jednotke
+ *
+ * Popis: Analyzuje cestu k zariadeniu a ak sa jedna o logicku jednotku,
+ * zobrazi informaciu o pristupe k danej jednotke.
+ *
+ * Proces:
+ * 1. Kontrola ci cesta ma format "\\\\.\\X:" (kde X je pismeno jednotky)
+ * 2. Zobrazenie informacie o pristupe k jednotke
+ *
+ * Parametre:
+ * @param path - Cesta k zariadeniu
+ *
+ * Navratova hodnota: ziadna (void)
+ */
 void check_volume(const char *path) {
   if (strlen(path) >= 6 && path[0] == '\\' && path[1] == '\\' &&
       path[2] == '.' && path[3] == '\\' && isalpha(path[4]) &&
@@ -660,6 +1005,24 @@ void check_volume(const char *path) {
   }
 }
 
+/**
+ * Zistuje velkost zariadenia v bajtoch
+ *
+ * Popis: Ziskava celkovu velkost zariadenia (disku alebo oddielu)
+ * pomocou prislusneho IOCTL volania pre dany typ zariadenia.
+ *
+ * Proces:
+ * 1. Vyber vhodneho IOCTL volania podla typu zariadenia
+ * 2. Volanie prislusneho DeviceIoControl
+ * 3. Spracovanie pripadnych chyb
+ *
+ * Parametre:
+ * @param hDevice - Handle na otvorene zariadenie
+ * @param type - Typ zariadenia (disk/oddiel)
+ *
+ * Navratova hodnota:
+ * @return LARGE_INTEGER - Velkost zariadenia v bajtoch
+ */
 LARGE_INTEGER get_device_size(HANDLE hDevice, device_type_t type) {
   LARGE_INTEGER size = {0};
   DWORD bytesReturned;
@@ -691,6 +1054,22 @@ LARGE_INTEGER get_device_size(HANDLE hDevice, device_type_t type) {
   return size;
 }
 
+/**
+ * Otvara zariadenie s opakovanim
+ *
+ * Popis: Pokusi sa otvorit disk alebo oddiel v rezime pre priamy pristup
+ * s ruznymi parametrami v pripade zlyhania prveho pokusu.
+ *
+ * Proces:
+ * 1. Prvy pokus o otvorenie s beznym pristupom
+ * 2. V pripade zlyhania pokus o otvorenie bez medzipamati a s priamym pristupom
+ *
+ * Parametre:
+ * @param path - Cesta k zariadeniu
+ *
+ * Navratova hodnota:
+ * @return HANDLE - Handle na otvorene zariadenie alebo INVALID_HANDLE_VALUE pri chybe
+ */
 HANDLE open_device_with_retry(const char *path) {
   HANDLE handle = CreateFileA(path, GENERIC_READ | GENERIC_WRITE,
                               FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
@@ -706,6 +1085,27 @@ HANDLE open_device_with_retry(const char *path) {
   return handle;
 }
 
+/**
+ * Priprava zariadenia na sifrovanie
+ *
+ * Popis: Vykonava kompletnu pripravu zariadenia na sifrovanie,
+ * vratane kontroly opravneni, otvorenia zariadenia, uzamknutia
+ * a odpojenia.
+ *
+ * Proces:
+ * 1. Kontrola administratorskych opravneni
+ * 2. Zobrazenie informacii o pristupe k jednotke
+ * 3. Otvorenie zariadenia
+ * 4. Uzamknutie a odpojenie jednotky (ak je to logicky oddiel)
+ * 5. Nastavenie rozsirenych parametrov pre priamy pristup
+ *
+ * Parametre:
+ * @param path - Cesta k zariadeniu
+ * @param handle - Vystupny parameter pre handle na otvorene zariadenie
+ *
+ * Navratova hodnota:
+ * @return bool - true ak bola priprava uspesna, inak false
+ */
 bool prepare_device_for_encryption(const char *path, HANDLE *handle) {
   if (!is_admin()) {
     fprintf(stderr, "Chyba: Vyzaduju sa administratorske opravnenia.\n");
@@ -737,6 +1137,22 @@ bool prepare_device_for_encryption(const char *path, HANDLE *handle) {
   return true;
 }
 
+/**
+ * Zobrazuje Windows chybove hlasky
+ *
+ * Popis: Ziska a zobrazi detailnu chybovu spravy systemu Windows
+ * na zaklade poslednej systemovej chyby (GetLastError).
+ *
+ * Proces:
+ * 1. Ziskanie kodu poslednej chyby
+ * 2. Formatovanie chybovej spravy pomocou FormatMessageA
+ * 3. Vypis spravy na standardny chybovy vystup
+ *
+ * Parametre:
+ * @param message - Uzivatelsky popis chyby
+ *
+ * Navratova hodnota: ziadna (void)
+ */
 void report_windows_error(const char *message) {
   char error_message[ERROR_BUFFER_SIZE] = {0};
   DWORD error_code = GetLastError();
@@ -750,11 +1166,45 @@ void report_windows_error(const char *message) {
   fprintf(stderr, "%s: (%lu) %s\n", message, error_code, error_message);
 }
 
+/**
+ * Nastavuje poziciu suboru/zariadenia
+ *
+ * Popis: Nastavuje aktualnu poziciu citania/zapisu v otvorenom
+ * subore alebo zariadeni pomocou API volania SetFilePointerEx.
+ *
+ * Proces:
+ * 1. Volanie SetFilePointerEx s nastavenou poziciou
+ * 2. Navrat vysledku operacie
+ *
+ * Parametre:
+ * @param handle - Handle na otvoreny subor/zariadenie
+ * @param position - Nova pozicia v subore/zariadeni
+ *
+ * Navratova hodnota:
+ * @return BOOL - TRUE ak bola operacia uspesna, inak FALSE
+ */
 BOOL set_file_position(HANDLE handle, LARGE_INTEGER position) {
   return SetFilePointerEx(handle, position, NULL, FILE_BEGIN);
 }
 
 #else
+/**
+ * Kontroluje ci je oddiel pripojeny v systeme
+ *
+ * Popis: Zistuje, ci je zadany oddiel aktualne pripojeny
+ * v operacnom systeme na zaklade obsahu suboru /proc/mounts.
+ *
+ * Proces:
+ * 1. Otvorenie suboru /proc/mounts
+ * 2. Postupne citanie riadkov a hladanie zaznamu pre dany oddiel
+ * 3. Spracovanie vysledku
+ *
+ * Parametre:
+ * @param device_path - Cesta k zariadeniu/oddielu
+ *
+ * Navratova hodnota:
+ * @return bool - true ak je oddiel pripojeny, inak false
+ */
 bool is_partition_mounted(const char *device_path) {
   FILE *mtab = fopen("/proc/mounts", "r");
 
@@ -785,6 +1235,21 @@ bool is_partition_mounted(const char *device_path) {
   return mounted;
 }
 
+/**
+ * Zistuje velkost oddielu
+ *
+ * Popis: Zisti velkost oddielu pomocou ioctl volania BLKGETSIZE64
+ *
+ * Proces:
+ * 1. Volanie ioctl s parametrom BLKGETSIZE64
+ * 2. Spracovanie pripadnych chyb
+ *
+ * Parametre:
+ * @param fd - File descriptor otvoreneho oddielu
+ *
+ * Navratova hodnota:
+ * @return uint64_t - Velkost oddielu v bajtoch
+ */
 uint64_t get_partition_size(int fd) {
   uint64_t size = 0;
   if (ioctl(fd, BLKGETSIZE64, &size) != 0) {
@@ -796,6 +1261,27 @@ uint64_t get_partition_size(int fd) {
 
 #endif
 
+/**
+ * Otvara diskove zariadenie pre citanie a zapis
+ *
+ * Popis: Funkcia zabezpecuje otvorenie diskoveho zariadenia alebo oddielu
+ * pre priamy pristup v rezime citania a zapisu a inicializuje kontext zariadenia.
+ *
+ * Proces:
+ * 1. Platformovo specificka implementacia (Windows/Linux)
+ * 2. Kontrola opravneni (administrator/root)
+ * 3. Overenie, ci je oddiel pripojeny (Linux)
+ * 4. Otvorenie zariadenia
+ * 5. Zistenie velkosti zariadenia
+ * 6. Inicializacia kontextu zariadenia
+ *
+ * Parametre:
+ * @param path - Cesta k zariadeniu
+ * @param ctx - Vystupny parameter pre kontext zariadenia
+ *
+ * Navratova hodnota:
+ * @return bool - true ak sa zariadenie uspesne otvorilo, inak false
+ */
 bool open_device(const char *path, device_context_t *ctx) {
 #ifdef _WIN32
   if (!prepare_device_for_encryption(path, &ctx->handle)) {
@@ -836,6 +1322,23 @@ bool open_device(const char *path, device_context_t *ctx) {
 #endif
 }
 
+/**
+ * Zatvara diskove zariadenie a uvolnuje zdroje
+ *
+ * Popis: Zatvori diskove zariadenie, uvolni vsetky zdroje
+ * a vykona potrebne platformovo-specificke operacie.
+ *
+ * Proces:
+ * 1. Kontrola, ci je zariadenie otvorene
+ * 2. Platformovo specificke operacie pred zatvorenim (odomknutie disku)
+ * 3. Zatvorenie file descriptora/handle
+ * 4. Reset hodnot v kontexte
+ *
+ * Parametre:
+ * @param ctx - Kontext zariadenia na zatvorenie
+ *
+ * Navratova hodnota: ziadna (void)
+ */
 void close_device(device_context_t *ctx) {
 #ifdef _WIN32
   if (ctx->handle != INVALID_HANDLE_VALUE) {
@@ -853,6 +1356,23 @@ void close_device(device_context_t *ctx) {
 #endif
 }
 
+/**
+ * Alokuje buffer zarovnany na velkost sektora
+ *
+ * Popis: Vytvara buffer v pamati, ktory je zarovnany na velkost
+ * sektora pre efektivny pristup k diskovym zariadeniam.
+ *
+ * Proces:
+ * 1. Platformovo specificka alokacia zarovnaneho buffera
+ * 2. Inicializacia buffera nulami
+ * 3. Spracovanie pripadnych chyb pri alokacii
+ *
+ * Parametre:
+ * @param size - Velkost buffera v bajtoch
+ *
+ * Navratova hodnota:
+ * @return uint8_t* - Pointer na alokovany buffer alebo NULL pri chybe
+ */
 uint8_t *allocate_aligned_buffer(size_t size) {
   uint8_t *buffer = NULL;
 #ifdef _WIN32
@@ -872,6 +1392,24 @@ uint8_t *allocate_aligned_buffer(size_t size) {
   return buffer;
 }
 
+/**
+ * Bezpecne vymaze citlive data z pamate
+ *
+ * Popis: Zabezpecuje bezpecne vymazanie citlivych dat (ako su kluce
+ * a hesla) z pamate prepisanim nulami a volitelne ich uvolnenie.
+ *
+ * Proces:
+ * 1. Kontrola platnosti ukazovatela
+ * 2. Prepisanie obsahu pamate nulami pomocou volatile premennej
+ * 3. Volitelne uvolnenie pamate
+ *
+ * Parametre:
+ * @param buffer - Pointer na pamatovu oblast na vymazanie
+ * @param size - Velkost oblasti v bajtoch
+ * @param free_memory - Ci sa ma pamat aj uvolnit po vymazani
+ *
+ * Navratova hodnota: ziadna (void)
+ */
 void secure_clear_memory(void *buffer, size_t size, bool free_memory) {
   if (buffer) {
     volatile uint8_t *p = (volatile uint8_t *)buffer;
@@ -890,6 +1428,24 @@ void secure_clear_memory(void *buffer, size_t size, bool free_memory) {
   }
 }
 
+/**
+ * Nastavuje poziciu v zariadeni
+ *
+ * Popis: Nastavuje aktualnu poziciu v zariadeni pre nasledne
+ * citanie alebo zapis dat.
+ *
+ * Proces:
+ * 1. Platformovo specificka implementacia (Windows/Linux)
+ * 2. Volanie prislusnych funkcii na zmenu pozicie
+ * 3. Spracovanie pripadnych chyb
+ *
+ * Parametre:
+ * @param ctx - Kontext zariadenia
+ * @param position - Nova pozicia v zariadeni v bajtoch
+ *
+ * Navratova hodnota:
+ * @return bool - true ak sa pozicia uspesne nastavila, inak false
+ */
 bool set_position(device_context_t *ctx, uint64_t position) {
 #ifdef _WIN32
   LARGE_INTEGER pos;
@@ -907,6 +1463,25 @@ bool set_position(device_context_t *ctx, uint64_t position) {
   return true;
 }
 
+/**
+ * Cita data zo zariadenia
+ *
+ * Popis: Zabezpecuje platformovo nezavisle citanie dat zo zariadenia
+ * s osetrenim moznych chyb a preruseni.
+ *
+ * Proces:
+ * 1. Platformovo specificka implementacia (Windows/Linux)
+ * 2. V Linuxe opakovanie pri preruseni signalom (EINTR)
+ * 3. Osetrenie chyb a EOF
+ *
+ * Parametre:
+ * @param ctx - Kontext zariadenia
+ * @param buffer - Vystupny buffer pre nacitane data
+ * @param size - Velkost dat na nacitanie v bajtoch
+ *
+ * Navratova hodnota:
+ * @return ssize_t - Pocet precitanych bajtov alebo -1 pri chybe
+ */
 ssize_t read_data(device_context_t *ctx, void *buffer, size_t size) {
 #ifdef _WIN32
   DWORD bytesRead = 0;
@@ -930,6 +1505,25 @@ ssize_t read_data(device_context_t *ctx, void *buffer, size_t size) {
 #endif
 }
 
+/**
+ * Zapisuje data na zariadenie
+ *
+ * Popis: Zabezpecuje platformovo nezavisle zapisanie dat na zariadenie
+ * s osetrenim moznych chyb a preruseni.
+ *
+ * Proces:
+ * 1. Platformovo specificka implementacia (Windows/Linux)
+ * 2. V Linuxe opakovanie pri preruseni signalom (EINTR) a neuplnom zapise
+ * 3. Osetrenie chyb a detekovanie neuspesnych zapisov
+ *
+ * Parametre:
+ * @param ctx - Kontext zariadenia
+ * @param buffer - Buffer s datami na zapis
+ * @param size - Velkost dat na zapis v bajtoch
+ *
+ * Navratova hodnota:
+ * @return ssize_t - Pocet zapisanych bajtov alebo -1 pri chybe
+ */
 ssize_t write_data(device_context_t *ctx, const void *buffer,
                    size_t size) {
 #ifdef _WIN32
@@ -960,6 +1554,23 @@ ssize_t write_data(device_context_t *ctx, const void *buffer,
 #endif
 }
 
+/**
+ * Zobrazuje chybove hlasky
+ *
+ * Popis: Vypisuje chybove hlasky v platformovo nezavislom formate,
+ * bud na zaklade systemovej chyby (errno) alebo zadaneho chyboveho kodu.
+ *
+ * Proces:
+ * 1. Platformovo specificka implementacia (Windows/Linux)
+ * 2. Ziskanie a formatovanie chybovej spravy
+ * 3. Vypis chybovej spravy na standardny chybovy vystup
+ *
+ * Parametre:
+ * @param message - Popis chyby
+ * @param error_code - Volitelny chybovy kod (0 pre systemovu chybu)
+ *
+ * Navratova hodnota: ziadna (void)
+ */
 void report_error(const char *message, int error_code) {
 #ifdef _WIN32
   (void)error_code;
@@ -972,6 +1583,25 @@ void report_error(const char *message, int error_code) {
 #endif
 }
 
+/**
+ * Cita blok sektorov zo zariadenia
+ *
+ * Popis: Cita blok dat zo zariadenia so zohladnenim
+ * velkosti zariadenia a aktualnej pozicie.
+ *
+ * Proces:
+ * 1. Vypocet velkosti dat na citanie s ohladom na velkost zariadenia
+ * 2. Volanie funkcie read_data pre samotne citanie
+ *
+ * Parametre:
+ * @param ctx - Kontext zariadenia
+ * @param buffer - Vystupny buffer pre nacitane data
+ * @param max_size - Maximalna velkost dat na citanie
+ * @param currentOffset - Aktualna pozicia v zariadeni
+ *
+ * Navratova hodnota:
+ * @return ssize_t - Pocet precitanych bajtov alebo -1 pri chybe
+ */
 static ssize_t read_sectors_block(device_context_t *ctx, uint8_t *buffer,
                                   size_t max_size,
                                   uint64_t currentOffset) {
@@ -993,6 +1623,26 @@ static ssize_t read_sectors_block(device_context_t *ctx, uint8_t *buffer,
   return read_data(ctx, buffer, bytesToRead);
 }
 
+/**
+ * Zapisuje blok sektorov na zariadenie
+ *
+ * Popis: Zapisuje blok dat na zariadenie s nastavenim pozicie
+ * a kontrolou vysledku zapisu.
+ *
+ * Proces:
+ * 1. Nastavenie pozicie v zariadeni
+ * 2. Volanie funkcie write_data pre samotny zapis
+ * 3. Overenie vysledku a zobrazenie varovania pri neuplnom zapise
+ *
+ * Parametre:
+ * @param ctx - Kontext zariadenia
+ * @param buffer - Buffer s datami na zapis
+ * @param bytesToWrite - Pocet bajtov na zapis
+ * @param currentOffset - Pozicia v zariadeni pre zapis
+ *
+ * Navratova hodnota:
+ * @return ssize_t - Pocet zapisanych bajtov alebo -1 pri chybe
+ */
 static ssize_t write_sectors_block(device_context_t *ctx, uint8_t *buffer,
                                    size_t bytesToWrite,
                                    uint64_t currentOffset) {
@@ -1013,6 +1663,28 @@ static ssize_t write_sectors_block(device_context_t *ctx, uint8_t *buffer,
   return written;
 }
 
+/**
+ * Hlavna funkcia programu
+ *
+ * Popis: Spracovava argumenty prikazoveho riadka, inicializuje
+ * vsetky potrebne struktury, volá prislusne funkcie pre sifrovanie
+ * alebo desifrovanie a zabezpecuje korektne ukoncenie programu.
+ *
+ * Proces:
+ * 1. Spracovanie argumentov prikazoveho riadka
+ * 2. Nacitanie hesla od uzivatela
+ * 3. Otvorenie zariadenia
+ * 4. Volanie prislusnej funkcie (encrypt_device/decrypt_device)
+ * 5. Zatvorenie zariadenia a uvolnenie zdrojov
+ * 6. Zobrazenie vysledku operacie a navratovy kod
+ *
+ * Parametre:
+ * @param argc - Pocet argumentov prikazoveho riadka
+ * @param argv - Pole retazcov s argumentmi prikazoveho riadk
+ *
+ * Navratova hodnota:
+ * @return int - EXIT_SUCCESS pri uspesnom vykonani, inak EXIT_FAILURE
+ */
 int main(int argc, char *argv[]) {
   char mode = 0;
   const char *device_path = NULL;
