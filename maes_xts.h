@@ -142,7 +142,7 @@
 /* ========== Konstanty pre verifikaciu hesla ========== */
 
 // Velkost verifikacneho bloku (AES block size)
-#define VERIFICATION_BLOCK_SIZE BLOCK_SIZE    
+#define VERIFICATION_BLOCK_SIZE AES_BLOCK_SIZE    
 // Znamy plaintext pre verifikaciu (16 bytes)        
 #define VERIFICATION_PLAINTEXT "MAES_VERIFY_OK\0\0" 
 
