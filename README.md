@@ -55,7 +55,7 @@ lightweight implementácie AES v XTS režime. Je vhodný pre:
 
 4. Spracovanie zariadenia po logických sektoroch:
    - Veľkosť sektora: 4096 bajtov
-   - Pre každý sektor sa šifruje s jedinečnou blokovou úpravou (tweak)
+   - Každý sektor sa šifruje s jedinečnou blokovou úpravou (tweak)
    - Bloková úprava = číslo_sektora
    - Číslo sektora je logická pozícia v zariadení
    - Šifrovanie dát v sektore pomocou AES-XTS s vypočítanou blokovou úpravou
