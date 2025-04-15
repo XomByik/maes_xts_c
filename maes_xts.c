@@ -168,7 +168,7 @@ int process_sectors(device_context_t *ctx, const uint8_t *derived_key,
         (currentOffset + (uint64_t)bytesRead) > headerPos) {
       header_in_buffer_offset = (size_t)(headerPos - currentOffset);
       if (header_in_buffer_offset + SECTOR_SIZE <= (size_t)bytesRead) {
-        printf("Ukladam a preskakujem kryptografiu pre hlavicku v bloku "
+        printf("Ukladam a preskakujem sifrovanie pre hlavicku v bloku "
                "na off=%llu...\n",
                (unsigned long long)currentOffset);
         memcpy(original_header_sector, buffer + header_in_buffer_offset,
