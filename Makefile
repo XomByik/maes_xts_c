@@ -47,7 +47,7 @@ all: build-clean
 # Pravidlo pre zostavenie a nasledne automaticke vycistenie
 build-clean: $(TARGET)
 	@echo "Uspesne zostavene. Cistim build priecinok..."
-	@$(MAKE) clean-build
+	@$(MAKE) clean-build 
 
 # Hlavny ciel
 $(TARGET): $(OBJS) $(LIBOBJS)
